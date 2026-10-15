@@ -1,0 +1,55 @@
+---
+- name: Install node and npm
+  hosts: nodejs_server
+  vars_files:
+    nodejs-vars.yaml
+  tasks:
+    - name: Update apt repo and cache
+      ansible.builtin.apt:
+        update_cache: yes
+        force_apt_get: yes
+        cache_valid_time: 3600
+    - name: Install node and npm
+      ansible.builtin.apt:
+        pkg:
+          - nodejs
+          - npm
+
+- name: Create new linux user for node app
+  hosts: nodejs_server
+  vars_files:
+    nodejs-vars.yaml
+  tasks:
+    - name: Create new linux user
+      user:
+        name: "{{ linux_user_name }}"
+        comment: Nodejs user
+        group: admin
+
+- name: Deploy nodejs app
+  hosts: nodejs_server
+  become: True
+  become_user: "{{ linux_user_name }}"
+  vars_files:
+    nodejs-vars.yaml
+  tasks:
+    - name: Extract nodejs app and copy to server
+      ansible.builtin.unarchive:
+        src: "{{ app_location }}/nodejs-app-{{ version }}.tgz"
+        dest: "{{ user_home_dir }}"
+        #remote_src: yes
+
+    - name: Install dependencies
+      npm:
+        path: "{{ user_home_dir }}/package"
+    - name: Start nodejs app
+      ansible.builtin.command:
+        chdir: "{{ user_home_dir }}/package/app"
+        cmd: node server
+      async: 1000
+      poll: 0
+    - name: Ensure nodejs app is running
+      shell: ps aux | grep node
+      register: app_status
+    - debug:
+        msg: "{{ app_status.stdout_lines }}"

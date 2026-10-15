@@ -1,0 +1,4 @@
+version: 1.0.0
+app_location: ./nodejs
+linux_user_name: nodejs_user
+user_home_dir: /home/{{ linux_user_name }}
