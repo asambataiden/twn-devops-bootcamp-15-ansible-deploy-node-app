@@ -1,0 +1,121 @@
+---
+- name: Install java and net-tools
+  hosts: nexus_server
+  tasks:
+    - name: update apt repo and cache
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+        cache_valid_time: 3600
+    - name: Install java 17
+      apt:
+        name: openjdk-17-jre-headless
+        state: present
+    - name: Install net-tools
+      apt:
+        name: net-tools
+        state: present
+
+- name: Download and unpack Nexus installer
+  hosts: nexus_server
+  tasks:
+    - name: Check nexus folder stat exists
+      stat:
+        path: /opt/nexus
+      register: nexus_folder_stat
+
+    - name: Download Nexus installer
+      get_url:
+        url: https://download.sonatype.com/nexus/3/nexus-3.97.0-13-linux-x86_64.tar.gz
+        dest: /opt/nexus-3.97.0-13-linux-x86_64.tar.gz
+      register: nexus_download
+
+    - name: Unpack Nexus installer
+      unarchive:
+        src: "{{ nexus_download.dest }}"
+        dest: /opt
+        remote_src: yes
+      when: not nexus_folder_stat.stat.exists
+
+    - name: Remove downloaded installer
+      file:
+        path: "{{ nexus_download.dest }}"
+        state: absent
+
+    - name: Find nexus folder name
+      find:
+        paths: /opt
+        patterns: nexus-*
+        file_type: directory
+        recurse: yes
+      register: nexus_folder
+
+    - name: Rename unpacked directory
+      shell: mv "{{ nexus_folder.files[0].path }}" /opt/nexus
+      when: not nexus_folder_stat.stat.exists
+
+- name: Create nexus user to own nexus folders
+  hosts: nexus_server
+  tasks:
+    - name: Ensure nexus group exists
+      group:
+        name: nexus
+        state: present
+    - name: Create nexus user
+      user:
+        name: nexus
+        groups: nexus
+        state: present
+    - name: Ensure nexus user owns nexus folders
+      file:
+        path: /opt/nexus
+        state: directory
+        owner: nexus
+        group: nexus
+        recurse: yes
+    - name: Ensure nexus user owner of sonatype-work
+      file:
+        path: /opt/sonatype-work
+        state: directory
+        owner: nexus
+        group: nexus
+        recurse: yes
+
+
+- name: Start nexus with nexus user
+  hosts: nexus_server
+  become: yes
+  become_user: nexus
+  tasks:
+    - name: Set run_as_user nexus
+      lineinfile:
+        path: /opt/nexus/bin/nexus.rc
+        regexp: '^#run_as_user=""'
+        line: run_as_user="nexus"
+        create: true
+        owner: nexus
+        group: nexus
+        mode: "0644"
+        state: present
+    - name: Start nexus
+      command: /opt/nexus/bin/nexus start
+
+
+- name: Verify nexus running
+  hosts: nexus_server
+  become: yes
+  become_user: nexus
+  tasks:
+    - name: Verify nexus running
+      shell: ps aux | grep nexus
+      register: nexus_status
+    - debug: msg={{ nexus_status.stdout_lines }}
+
+    - name: Wait for nexus to start
+      pause:
+        minutes: 1
+
+    - name: Check nexus netstat
+      shell: netstat -plnt
+      register: nexus_status
+    - debug: msg={{ nexus_status.stdout_lines }}

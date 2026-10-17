@@ -16,3 +16,6 @@ ansible_user=root
 
 [nodejs_server]
 165.22.74.245 ansible_ssh_private_key_file=~/.ssh/id_ed25519_github_asambataiden ansible_user=root
+
+[nexus_server]
+165.227.174.123 ansible_ssh_private_key_file=~/.ssh/id_ed25519_github_asambataiden ansible_user=root
