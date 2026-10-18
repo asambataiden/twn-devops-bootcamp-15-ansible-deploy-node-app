@@ -1,0 +1,20 @@
+---
+- name: Deploy app in new namespace
+  hosts: localhost
+  vars_files:
+    - k8s-vars.yaml
+  tasks:
+    - name: Create namespace
+      k8s:
+        name: "{{ namespace }}"
+        state: present
+        api_version: v1
+        kind: Namespace
+        kubeconfig: "{{ kubeconfig_path }}"
+
+    - name: Deploy nginx app
+      k8s:
+        src: nginx-config.yaml
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        namespace: "{{ namespace }}"

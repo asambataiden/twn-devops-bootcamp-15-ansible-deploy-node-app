@@ -1,0 +1,7 @@
+namespace: my-app
+
+aws_profile: asambataiden-dev
+aws_region: eu-north-1
+eks_cluster_name: myapp-eks-cluster
+eks_context_name: twn-eks-dev
+kubeconfig_path: "{{ lookup('env', 'HOME') }}/.kube/config"
